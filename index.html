@@ -159,7 +159,7 @@
         let json;
         try {
           log('调用API...');
-          const apiRes = await fetch('/proxy?url=' + encodeURIComponent(match[0]));
+          const apiRes = await fetch('/api/proxy?url=' + encodeURIComponent(match[0]));
           json = await apiRes.json();
           log('API响应: code=' + json.code + ', type=' + (json.data?.type || 'unknown'));
         } catch (e) {
@@ -217,7 +217,7 @@
         try {
           log('正在抓取视频...');
           const a = document.createElement('a');
-          a.href = '/download?url=' + encodeURIComponent(videoUrl) + '&name=' + encodeURIComponent(safeName + ext);
+          a.href = '/api/download?url=' + encodeURIComponent(videoUrl) + '&name=' + encodeURIComponent(safeName + ext);
           a.download = safeName + ext;
           document.body.appendChild(a);
           a.click();
