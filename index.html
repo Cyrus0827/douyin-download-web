@@ -140,16 +140,33 @@
       const safeName = rawTitle.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10) || 'video';
       const ext = videoUrl.includes('webp') || videoUrl.includes('image') ? '.jpg' : '.mp4';
       log('文件名: ' + safeName + ext);
-      log('开始下载...');
+      log('正在下载...');
 
-      const a = document.createElement('a');
-      a.href = videoUrl;
-      a.download = safeName + ext;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      log('下载完成', 'ok');
+      try {
+        const res = await fetch(videoUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = safeName + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+        log('下载完成', 'ok');
+      } catch (e) {
+        log('错误: ' + e.message + '，尝试直接下载', 'warn');
+        // CORS失败时直接打开
+        const a = document.createElement('a');
+        a.href = videoUrl;
+        a.download = safeName + ext;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        log('直接打开，请长按保存', 'warn');
+      }
       urlInput.value = '';
       btn.disabled = false;
     });
