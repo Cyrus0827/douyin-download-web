@@ -12,19 +12,35 @@
       background: #000;
       font-family: system-ui, sans-serif;
     }
+    #wrap {
+      width: 90vw;
+      max-width: 600px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0.5em;
+    }
+    #urlInput {
+      width: 100%;
+      font-size: clamp(18px, 4vw, 28px);
+      padding: 0.4em 0.6em;
+      border: 2px solid #fff;
+      border-radius: 0.1em;
+      background: #000;
+      color: #fff;
+      outline: none;
+    }
+    #urlInput::placeholder { color: #888; }
     button {
-      font-size: clamp(48px, 15vw, 120px);
-      padding: 0.4em 1em;
+      font-size: clamp(36px, 10vw, 80px);
+      padding: 0.3em 0.8em;
       border: none;
       border-radius: 0.15em;
       background: #fff;
       color: #000;
       cursor: pointer;
-      transition: transform 0.1s;
-      min-width: 2.5em;
+      min-width: 2em;
     }
-    button:active { transform: scale(0.95); }
-    button:disabled { cursor: not-allowed; opacity: 0.7; }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
 
     #popup {
       position: fixed;
@@ -32,7 +48,7 @@
       transform: translate(-50%, -50%);
       background: #fff;
       color: #000;
-      font-size: clamp(18px, 4vw, 28px);
+      font-size: clamp(16px, 4vw, 24px);
       padding: 0.5em 1em;
       border-radius: 0.1em;
       text-align: center;
@@ -49,71 +65,30 @@
       background: #111;
       color: #fff;
       font-family: monospace;
-      font-size: clamp(12px, 2vw, 16px);
-      padding: 0.4em 0.6em;
-      max-height: 30vh;
+      font-size: clamp(11px, 2vw, 15px);
+      padding: 0.3em 0.5em;
+      max-height: 25vh;
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
     }
-    #log div { white-space: pre-wrap; word-break: break-all; }
+    #log div { white-space: pre-wrap; word-break: break-all; margin-bottom: 1px; }
     #log .err { color: #f55; }
     #log .warn { color: #ff0; }
     #log .ok { color: #0f0; }
-
-    #inputWrap {
-      position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 90vw;
-      max-width: 600px;
-      display: none;
-      flex-direction: column;
-      gap: 0.5em;
-      z-index: 100;
-    }
-    #urlInput {
-      width: 100%;
-      font-size: clamp(18px, 4vw, 28px);
-      padding: 0.4em 0.6em;
-      border: 2px solid #fff;
-      border-radius: 0.1em;
-      background: #000;
-      color: #fff;
-      outline: none;
-    }
-    #urlInput::placeholder { color: #888; }
-    #confirmBtn {
-      font-size: clamp(20px, 4vw, 32px);
-      padding: 0.3em 0.6em;
-      border: 2px solid #fff;
-      border-radius: 0.1em;
-      background: #fff;
-      color: #000;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
-  <button id="btn">下载</button>
+  <div id="wrap">
+    <input id="urlInput" type="url" inputmode="url" placeholder="粘贴抖音链接" />
+    <button id="btn">下载</button>
+  </div>
   <div id="popup"></div>
   <div id="log"></div>
-  <div id="inputWrap">
-    <input id="urlInput" type="url" inputmode="url" placeholder="粘贴抖音链接" />
-    <button id="confirmBtn">确定</button>
-  </div>
   <script>
     const btn = document.getElementById('btn');
+    const urlInput = document.getElementById('urlInput');
     const popup = document.getElementById('popup');
     const logEl = document.getElementById('log');
-    const inputWrap = document.getElementById('inputWrap');
-    const urlInput = document.getElementById('urlInput');
-    const confirmBtn = document.getElementById('confirmBtn');
     let popupTimer = null;
-
-    // 移动端优先用输入框
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
     function log(msg, type) {
       const d = document.createElement('div');
@@ -130,156 +105,56 @@
       popupTimer = setTimeout(() => popup.classList.remove('show'), 3000);
     }
 
-    async function handleDownload(sourceText) {
-      btn.textContent = '...';
-      btn.disabled = true;
-      logEl.innerHTML = '';
-      inputWrap.style.display = 'none';
-
-      try {
-        const text = sourceText || urlInput.value.trim();
-        if (!text) {
-          log('错误: 输入为空', 'err');
-          showPopup('输入为空');
-          done();
-          return;
-        }
-
-        log('读取链接...');
-
-        const match = text.match(/https?:\/\/(?:v\.douyin\.com|www\.iesdouyin\.com)\/[^\s]+/);
-        if (!match) {
-          log('错误: 未识别到抖音链接', 'err');
-          showPopup('未识别到抖音链接');
-          done();
-          return;
-        }
-        log('识别到链接: ' + match[0]);
-
-        // 直接请求API（无代理）
-        let json;
-        try {
-          log('调用API...');
-          const apiRes = await fetch('https://api.bugpk.com/api/douyin?url=' + encodeURIComponent(match[0]));
-          json = await apiRes.json();
-          log('API响应: code=' + json.code + ', type=' + (json.data?.type || 'unknown'));
-        } catch (e) {
-          log('错误: API调用失败 - ' + e.message, 'err');
-          showPopup('API调用失败');
-          done();
-          return;
-        }
-
-        if (json.code !== 200 || !json.data) {
-          log('错误: API返回错误', 'err');
-          showPopup('API返回错误');
-          done();
-          return;
-        }
-
-        // 取视频URL
-        let videoUrl = null;
-        let sourceType = '';
-
-        if (json.data.url) {
-          videoUrl = json.data.url;
-          sourceType = '普通视频';
-        } else if (json.data.live_photo && json.data.live_photo[0] && json.data.live_photo[0].video) {
-          videoUrl = json.data.live_photo[0].video;
-          sourceType = '实况视频';
-        } else if (json.data.images && json.data.images[0]) {
-          videoUrl = json.data.images[0];
-          sourceType = '图集';
-        }
-
-        if (!videoUrl) {
-          log('错误: 无法解析视频地址', 'err');
-          showPopup('无法解析视频地址');
-          done();
-          return;
-        }
-        log('视频来源: ' + sourceType);
-
-        // 取标题前10字
-        const rawTitle = json.data.title || 'video';
-        if (!json.data.title) log('警告: 标题为空，使用默认值', 'warn');
-        const safeName = rawTitle.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10) || 'video';
-        const ext = videoUrl.includes('webp') || videoUrl.includes('image') ? '.jpg' : '.mp4';
-        log('文件名: ' + safeName + ext);
-
-        // 直接下载
-        try {
-          log('正在触发下载...');
-          const a = document.createElement('a');
-          a.href = videoUrl;
-          a.download = safeName + ext;
-          a.target = '_blank';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          log('下载完成', 'ok');
-        } catch (e) {
-          log('错误: 下载失败 - ' + e.message, 'err');
-          showPopup('下载失败');
-          done();
-          return;
-        }
-
-      } catch (e) {
-        log('错误: 未知错误 - ' + e.message, 'err');
-        showPopup('未知错误');
-      }
-
-      done();
-    }
-
-    // 移动端：直接显示输入框
-    if (isMobile) {
-      inputWrap.style.display = 'flex';
-    }
-
-    // 主按钮：桌面端先试剪贴板，移动端直接显示输入框
     btn.addEventListener('click', async () => {
-      logEl.innerHTML = '';
+      const text = urlInput.value.trim();
+      if (!text) { showPopup('请先粘贴链接'); return; }
 
-      if (isMobile) {
-        inputWrap.style.display = 'flex';
-        urlInput.focus();
-        log('提示: 请在上方输入框粘贴链接');
-        done();
-        return;
-      }
-
-      btn.textContent = '...';
       btn.disabled = true;
+      logEl.innerHTML = '';
+      log('读取链接...');
 
+      const match = text.match(/https?:\/\/(?:v\.douyin\.com|www\.iesdouyin\.com)\/[^\s]+/);
+      if (!match) { log('错误: 未识别到抖音链接', 'err'); showPopup('未识别到抖音链接'); btn.disabled = false; return; }
+      log('识别到链接: ' + match[0]);
+
+      let json;
       try {
-        const text = await navigator.clipboard.readText();
-        btn.textContent = '下载';
-        btn.disabled = false;
-        await handleDownload(text);
-        return;
-      } catch (e) {
-        // 剪贴板不可用，显示输入框
-      }
+        log('调用API...');
+        const r = await fetch('https://api.bugpk.com/api/douyin?url=' + encodeURIComponent(match[0]));
+        json = await r.json();
+        log('API: code=' + json.code + ', type=' + (json.data?.type || '?'));
+      } catch (e) { log('错误: API调用失败 - ' + e.message, 'err'); showPopup('API调用失败'); btn.disabled = false; return; }
 
-      btn.textContent = '下载';
-      inputWrap.style.display = 'flex';
-      urlInput.focus();
-      log('提示: 请在上方输入框粘贴链接');
+      if (json.code !== 200 || !json.data) { log('错误: API返回错误', 'err'); showPopup('API返回错误'); btn.disabled = false; return; }
+
+      let videoUrl = null, sourceType = '';
+      if (json.data.url) { videoUrl = json.data.url; sourceType = '普通视频'; }
+      else if (json.data.live_photo?.[0]?.video) { videoUrl = json.data.live_photo[0].video; sourceType = '实况视频'; }
+      else if (json.data.images?.[0]) { videoUrl = json.data.images[0]; sourceType = '图集'; }
+
+      if (!videoUrl) { log('错误: 无法解析视频地址', 'err'); showPopup('无法解析视频地址'); btn.disabled = false; return; }
+      log('来源: ' + sourceType);
+
+      const rawTitle = json.data.title || 'video';
+      if (!json.data.title) log('警告: 标题为空', 'warn');
+      const safeName = rawTitle.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10) || 'video';
+      const ext = videoUrl.includes('webp') || videoUrl.includes('image') ? '.jpg' : '.mp4';
+      log('文件名: ' + safeName + ext);
+      log('开始下载...');
+
+      const a = document.createElement('a');
+      a.href = videoUrl;
+      a.download = safeName + ext;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      log('下载完成', 'ok');
+      urlInput.value = '';
+      btn.disabled = false;
     });
 
-    confirmBtn.addEventListener('click', () => handleDownload());
-    urlInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); handleDownload(); }
-    });
-
-    function done() {
-      setTimeout(() => {
-        btn.textContent = '下载';
-        btn.disabled = false;
-      }, 800);
-    }
+    urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
   </script>
 </body>
 </html>
