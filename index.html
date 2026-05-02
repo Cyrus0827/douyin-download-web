@@ -112,6 +112,9 @@
     const confirmBtn = document.getElementById('confirmBtn');
     let popupTimer = null;
 
+    // 移动端优先用输入框
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
     function log(msg, type) {
       const d = document.createElement('div');
       d.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
@@ -127,7 +130,6 @@
       popupTimer = setTimeout(() => popup.classList.remove('show'), 3000);
     }
 
-    // 核心处理函数
     async function handleDownload(sourceText) {
       btn.textContent = '...';
       btn.disabled = true;
@@ -145,7 +147,6 @@
 
         log('读取链接...');
 
-        // 正则匹配
         const match = text.match(/https?:\/\/(?:v\.douyin\.com|www\.iesdouyin\.com)\/[^\s]+/);
         if (!match) {
           log('错误: 未识别到抖音链接', 'err');
@@ -155,11 +156,11 @@
         }
         log('识别到链接: ' + match[0]);
 
-        // 调API
+        // 直接请求API（无代理）
         let json;
         try {
           log('调用API...');
-          const apiRes = await fetch('/api/proxy?url=' + encodeURIComponent(match[0]));
+          const apiRes = await fetch('https://api.bugpk.com/api/douyin?url=' + encodeURIComponent(match[0]));
           json = await apiRes.json();
           log('API响应: code=' + json.code + ', type=' + (json.data?.type || 'unknown'));
         } catch (e) {
@@ -169,16 +170,9 @@
           return;
         }
 
-        if (json.code !== 200) {
-          log('错误: API返回错误码 ' + json.code, 'err');
+        if (json.code !== 200 || !json.data) {
+          log('错误: API返回错误', 'err');
           showPopup('API返回错误');
-          done();
-          return;
-        }
-
-        if (!json.data) {
-          log('错误: 无数据', 'err');
-          showPopup('无数据');
           done();
           return;
         }
@@ -213,12 +207,13 @@
         const ext = videoUrl.includes('webp') || videoUrl.includes('image') ? '.jpg' : '.mp4';
         log('文件名: ' + safeName + ext);
 
-        // 下载
+        // 直接下载
         try {
-          log('正在抓取视频...');
+          log('正在触发下载...');
           const a = document.createElement('a');
-          a.href = '/api/download?url=' + encodeURIComponent(videoUrl) + '&name=' + encodeURIComponent(safeName + ext);
+          a.href = videoUrl;
           a.download = safeName + ext;
+          a.target = '_blank';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
@@ -238,9 +233,23 @@
       done();
     }
 
-    // 主按钮点击：先试剪贴板，不行就显示输入框
+    // 移动端：直接显示输入框
+    if (isMobile) {
+      inputWrap.style.display = 'flex';
+    }
+
+    // 主按钮：桌面端先试剪贴板，移动端直接显示输入框
     btn.addEventListener('click', async () => {
       logEl.innerHTML = '';
+
+      if (isMobile) {
+        inputWrap.style.display = 'flex';
+        urlInput.focus();
+        log('提示: 请在上方输入框粘贴链接');
+        done();
+        return;
+      }
+
       btn.textContent = '...';
       btn.disabled = true;
 
@@ -260,17 +269,9 @@
       log('提示: 请在上方输入框粘贴链接');
     });
 
-    // 输入框确定按钮
-    confirmBtn.addEventListener('click', () => {
-      handleDownload();
-    });
-
-    // 输入框回车
+    confirmBtn.addEventListener('click', () => handleDownload());
     urlInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleDownload();
-      }
+      if (e.key === 'Enter') { e.preventDefault(); handleDownload(); }
     });
 
     function done() {
